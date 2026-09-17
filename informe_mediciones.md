@@ -260,15 +260,23 @@ Por cada vista (las 3 reutilizadas + la nueva de seguridad), se documenta:
 
 ---
 
-## Parte C — Vista materializada
+## Parte C — Vista Materializada (Andrés)
 
-- **Reporte elegido:** [completar]
-- **Tiempo sin materializar:** [completar]
-- **Tiempo consultando la vista materializada:** [completar]
-- **Frecuencia de refresco recomendada:** [completar]
-- **Implicancia para los usuarios** (dato no actualizado entre refrescos): [completar]
+### 1. Reporte Seleccionado
+Se seleccionó el reporte analítico de **Facturación total por categoría y mes**, el cual requiere realizar JOINs entre 4 tablas base (`categoria`, `producto`, `detalle_pedido`, `pedido`), aplicar filtros de estado y borrado lógico, y realizar agregaciones sobre cientos de miles de registros.
 
----
+### 2. Comparativa de Tiempos de Ejecución (`EXPLAIN ANALYZE`)
+
+* **Consulta original (sobre tablas base):** `164.285 ms`
+* **Consulta sobre Vista Materializada (`mv_facturacion_categoria_mes`):** `0.044 ms`
+* **Mejora de rendimiento:** Reducción del tiempo de respuesta en aproximadamente un **99.97%** (~3700x más rápido).
+
+### 3. Estrategia de Refresco e Impacto en el Negocio
+
+* **Frecuencia de refresco recomendada:** Diaria (ejecutada mediante una tarea programada a la medianoche) o Semanal.
+* **Comando de refresco concurrente:**
+  ```sql
+  REFRESH MATERIALIZED VIEW CONCURRENTLY mv_facturacion_categoria_mes;---
 
 ## Referencia — Los 5 motivos por los que el optimizador puede ignorar un índice
 
