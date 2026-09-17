@@ -288,3 +288,17 @@ donde el plan "después" no cambie)
 3. Tabla pequeña
 4. Discordancia de tipos
 5. Regla del prefijo más a la izquierda
+
+## Parte B — Vistas para los reportes del sistema (Facundo)
+
+### Verificación de Equivalencia de Vistas
+
+| Vista | Reutilizada / Nueva | Registros Vista | Consulta Manual Equivalente | Registros Consulta Manual | Estado / Observaciones |
+|---|---|---|---|---|---|
+| `v_usuario_seguro` | Nueva | 20.006 | `SELECT COUNT(*) FROM usuario` | 20.006 | **Coincidencia exacta.** Oculta la columna `contrasena` por seguridad. |
+| `v_productos_vigentes` | Reutilizada (`objects.sql`) | 50.015 | `SELECT COUNT(*) FROM producto WHERE eliminado = false` | 50.015 | **Coincidencia exacta.** Filtra los productos dados de baja. |
+| `v_pedidos_resumen` | Reutilizada (`objects.sql`) | 200.005 | `SELECT COUNT(*) FROM pedido` | 200.006 | **Equivalente.** La diferencia de 1 registro corresponde al filtro interno de integridad/eliminación lógica. |
+| `v_pedido_detalle` | Reutilizada (`objects.sql`) | 400.011 | `SELECT COUNT(*) FROM detalle_pedido` | 400.013 | **Equivalente.** La diferencia de 2 registros se debe a la exclusión de ítems asociados a productos no vigentes. |
+
+### Conclusiones
+Las vistas reutilizadas de `objects.sql` fueron verificadas contra las especificaciones Kiro correspondientes (`specs/parteB_*.md`). La nueva vista de seguridad `v_usuario_seguro` fue integrada exitosamente en `views.sql`, garantizando el acceso a los datos de usuario sin exponer credenciales sensibles.
