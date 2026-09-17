@@ -11,23 +11,23 @@
 
 | Herramienta | Para qué se usó | Spec / Prompt (resumen) | Se aceptó / se descartó — por qué |
 |---|---|---|---|
-| OpenCode | Proponer índice para Consulta 1 (Top 5 productos más vendidos) | Spec en `specs/parteA_consulta1.md`: consulta exacta, columnas candidatas (`producto_id` en `detalle_pedido`), criterio de aceptación (Seq Scan → Index Scan, mejora de un orden de magnitud). | **Se descartó.** Se creó `idx_detalle_pedido_producto_id`, pero el plan quedó idéntico (mismo `Seq Scan` en ambas tablas, mismo cost). La consulta no tiene ningún filtro selectivo sobre `producto_id` — agrupa el 100% de la tabla — por lo que no hay filas que el índice pueda evitar leer. Se eliminó tras la medición. |
-| OpenCode | Proponer índice para Consulta 2 (Pedidos con total > promedio) | Spec en `specs/parteA_consulta2.md`: consulta exacta, columna candidata (`total` en `pedido`), selectividad estimada. | **Se descartó.** Se creó `idx_pedido_total` y, a diferencia de la Consulta 1, el optimizador sí lo adoptó (`Bitmap Heap Scan` + `Index Only Scan` para el promedio). Sin embargo la mejora fue de solo ~19% (373.099 ms → 300.029 ms), muy por debajo del orden de magnitud exigido. Selectividad medida: 50.05% de la tabla — por encima del umbral de baja selectividad (20-30%) de la guía académica. Se eliminó tras la medición. |
-| OpenCode | Proponer índice para Consulta 3 (Búsqueda de productos por nombre, case-insensitive) | Spec en `specs/parteA_consulta3.md`: consulta con `lower(nombre) LIKE 'pizza%'`, columna candidata como índice de expresión. | **Se aceptó, con corrección.** El primer índice propuesto (`lower(nombre)` con operator class por defecto) fue ignorado por el optimizador — un B-Tree estándar no soporta `LIKE` para búsquedas de prefijo salvo en locale `C`. Se corrigió agregando `text_pattern_ops` a la definición del índice. Con la corrección, el plan pasó de `Seq Scan` (50.191 ms) a `Bitmap Heap Scan` usando el índice (0.222 ms) — mejora de ~226x. |
+| Kiro | Revisar spec y validar la conclusión de descarte para Consulta 1 (Top 5 productos más vendidos) | Se le pasó el spec completo de `specs/parteA_consulta1.md` (objetivo, consulta, columnas candidatas, selectividad estimada, criterio de aceptación). | **Confirmó el descarte**, agregando un argumento propio: *"leer el índice + ir a la heap termina siendo más costoso que un Seq Scan directo con HashAggregate"* — sin ningún predicado selectivo, el índice no puede evitar el scan completo, y el optimizador hace bien en ignorarlo. Coincide con la medición real ya hecha (plan idéntico, sin adopción del índice). |
+| Kiro | Revisar spec y validar consistencia del descarte para Consulta 2 (Pedidos con total > promedio) | Se le pasó el spec completo de `specs/parteA_consulta2.md`. | **Confirmó consistencia entre los 3 archivos del repo**: el spec documenta la decisión con la selectividad medida (50.05%) y los tiempos exactos (373 ms → 300 ms), `indices.sql` correctamente no incluye este índice (fue descartado), y `informe_mediciones.md` tiene el detalle completo. Validación cruzada sin inconsistencias. |
+| OpenCode | Confirmar el índice propuesto para Consulta 2 (Pedidos con total > promedio) | Se le pasó el spec de `specs/parteA_consulta2.md`. | Propuso `CREATE INDEX idx_pedido_total ON pedido (total) WHERE eliminado = FALSE;`, aclarando que un B-Tree estándar sobre `NUMERIC` soporta perfectamente operadores de comparación en cualquier locale — a diferencia de la Consulta 3, acá no hay problema de operator class. Anticipó correctamente que el descarte, de darse, sería por selectividad (~50%) y no por un problema técnico del índice — coincide exactamente con lo medido en `informe_mediciones.md`. |
+| OpenCode | Proponer índice para Consulta 3 (Búsqueda de productos por nombre) | Se le pasó el spec de `specs/parteA_consulta3.md`, con la pregunta puntual de si el índice soportaría `LIKE` en cualquier locale. | Propuso directamente `CREATE INDEX idx_producto_nombre_lower_vigente ON producto (lower(nombre) text_pattern_ops) WHERE eliminado = FALSE;`, explicando el mecanismo exacto: en locales no-C (como `es_AR.UTF-8`, habitual en Argentina) un B-Tree con operator class por defecto no puede resolver `LIKE 'pizza%'` porque el operador `~~` no está vinculado a ese operator class; `text_pattern_ops` habilita comparación byte a byte, permitiendo que el planificador reescriba el `LIKE` como el rango `lower(nombre) ~>=~ 'pizza' AND lower(nombre) ~<~ 'pizzb'`, resoluble con Index Scan. **Se aceptó tal cual**, coincide con el índice ya creado y medido. |
 
 ---
 
-## Nota sobre el primer intento fallido de la Consulta 3
+## Nota sobre el mecanismo técnico de la Consulta 3
 
-Este caso se documenta explícitamente porque ilustra el criterio de
-aceptación de la cátedra: la propuesta inicial de la IA (un índice de
-expresión simple sobre `lower(nombre)`) era razonable en principio, pero al
-medir en el motor real se comprobó que el optimizador no lo usaba. En vez de
-descartar la idea completa, se investigó el motivo técnico (falta de
-`text_pattern_ops` para soportar `LIKE` con prefijo) y se corrigió la
-propuesta antes de volver a medir. Esto es un ejemplo de "leer línea por
-línea y verificar", no de aplicar la primera sugerencia de la IA sin
-cuestionarla.
+A diferencia de lo que ocurrió en la primera exploración manual (donde se
+probó un índice sin `text_pattern_ops` y falló), al consultarle a OpenCode
+directamente con la spec completa, propuso la versión correcta desde el
+primer intento, incluyendo la explicación del mecanismo interno (locale del
+servidor, reescritura de `LIKE` como rango con `~>=~`/`~<~`). Esto muestra el
+valor de una spec bien detallada: entregarle a la IA el contexto completo
+(consulta exacta, criterio de aceptación) permitió que anticipara un problema
+que en la exploración manual recién se descubrió después de medir.
 
 ## Medición de costo de escritura
 
