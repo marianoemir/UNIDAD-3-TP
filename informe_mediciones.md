@@ -1,4 +1,4 @@
-# Informe de Mediciones — Índices, Vistas y Vista Materializada
+F# Informe de Mediciones — Índices, Vistas y Vista Materializada
 
 **Materia:** Base de Datos II (UTN) — Unidad 3, Semana 1
 **Proyecto Integrador:** Food Store
@@ -245,20 +245,6 @@ El índice `idx_producto_nombre_lower_vigente` (el único aceptado) no impacta
 espera ningún costo de escritura adicional sobre la tabla que más INSERTs
 recibe del sistema.
 
----
-
-## Parte B — Verificación de equivalencia de vistas
-
-Por cada vista (las 3 reutilizadas + la nueva de seguridad), se documenta:
-
-| Vista | Consulta manual equivalente | ¿Coinciden? | Evidencia |
-|---|---|---|---|
-| `v_productos_vigentes` | | | |
-| `v_pedidos_resumen` | | | |
-| `v_pedido_detalle` | | | |
-| Vista de seguridad (usuario sin contrasena) | | | |
-
----
 
 ## Parte C — Vista Materializada (Andrés)
 
@@ -273,10 +259,33 @@ Se seleccionó el reporte analítico de **Facturación total por categoría y me
 
 ### 3. Estrategia de Refresco e Impacto en el Negocio
 
-* **Frecuencia de refresco recomendada:** Diaria (ejecutada mediante una tarea programada a la medianoche) o Semanal.
+* **Frecuencia de refresco recomendada:** Diaria (ejecutada mediante una tarea
+  programada a la medianoche) o Semanal. El reporte se usa para análisis
+  gerencial (facturación por categoría y mes), no para decisiones operativas
+  del día a día, por lo que no necesita estar actualizado en tiempo real.
+
 * **Comando de refresco concurrente:**
-  ```sql
-  REFRESH MATERIALIZED VIEW CONCURRENTLY mv_facturacion_categoria_mes;---
+```sql
+  REFRESH MATERIALIZED VIEW CONCURRENTLY mv_facturacion_categoria_mes;
+```
+
+* **Qué implica para los usuarios que el dato no se actualice en cada
+  REFRESH:** entre un refresco y el siguiente, la vista materializada queda
+  "congelada" en el estado del último refresco — un pedido confirmado a las
+  10 AM no va a sumar a la facturación del mes hasta que corra el próximo
+  `REFRESH`. Con una frecuencia diaria, esto significa que el reporte puede
+  atrasarse hasta 24 horas respecto de los datos reales de `pedido` y
+  `detalle_pedido`. Para el caso de uso (reporte gerencial de facturación por
+  categoría y mes, no un panel operativo en tiempo real) esa ventana de
+  desactualización es aceptable: nadie necesita ver la facturación de hace
+  10 minutos, pero sí conviene dejarlo documentado para que quien lea el
+  reporte sepa que el número no representa el segundo exacto de la consulta,
+  sino el estado de la base al momento del último `REFRESH`. Si en el futuro
+  se necesitara mayor frescura (por ejemplo, un dashboard que se consulta
+  varias veces al día), conviene subir la frecuencia a cada pocas horas en
+  vez de una vez al día, sin llegar a refrescar en cada escritura, ya que eso
+  anularía el beneficio de tener la vista materializada.
+---
 
 ## Referencia — Los 5 motivos por los que el optimizador puede ignorar un índice
 

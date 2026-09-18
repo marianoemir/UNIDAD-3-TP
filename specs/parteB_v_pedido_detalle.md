@@ -4,18 +4,26 @@
 Reutilizada de `objects.sql` (Verificada para Parte B).
 
 ## Objetivo
-Desglosar las líneas de detalle asociadas a cada pedido, vinculando la información de los productos comprados con sus cantidades y precios unitarios.
+Desglosar las líneas de detalle asociadas a cada pedido, mostrando el nombre del producto comprado, la cantidad y los montos.
 
 ## Requerimientos
-- **Tablas base:** `detalle_pedido` (o `linea_pedido`), `producto`
-- **Joins:** Relación por `id_producto`
+- **Tablas base:** `detalle_pedido`, `producto`
+- **Join:** `detalle_pedido.producto_id = producto.id`
+- **Filtro de vigencia:** `detalle_pedido.eliminado = false`
 - **Columnas expuestas:**
-  - `id_pedido`
-  - `id_producto`
-  - `nombre_producto`
+  - `pedido_id`
+  - `producto` (nombre del producto)
   - `cantidad`
   - `precio_unitario`
-  - `subtotal` (si aplica)
+  - `subtotal`
 
 ## Criterio de Aceptación
-La cantidad total de registros retornados por `SELECT COUNT(*) FROM v_pedido_detalle` debe ser idéntica al conteo directo sobre la tabla de detalle de pedidos.
+La ejecución de `SELECT * FROM v_pedido_detalle` debe retornar la misma cantidad de filas y los mismos valores que:
+```sql
+SELECT dp.pedido_id,
+       pr.nombre AS producto,
+       dp.cantidad, dp.precio_unitario, dp.subtotal
+FROM detalle_pedido dp
+JOIN producto pr ON pr.id = dp.producto_id
+WHERE dp.eliminado = FALSE;
+```

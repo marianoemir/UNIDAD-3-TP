@@ -4,18 +4,27 @@
 Reutilizada de `objects.sql` (Verificada para Parte B).
 
 ## Objetivo
-Consolidar la información general de los pedidos de la tienda, incluyendo datos clave del usuario comprador y el total acumulado.
+Consolidar la información general de los pedidos de la tienda, incluyendo el nombre completo del usuario comprador.
 
 ## Requerimientos
 - **Tablas base:** `pedido`, `usuario`
-- **Joins:** `pedido.id_usuario = usuario.id_usuario`
+- **Join:** `pedido.usuario_id = usuario.id`
+- **Filtro de vigencia:** `pedido.eliminado = false`
 - **Columnas expuestas:**
-  - `id_pedido`
+  - `id` (de pedido)
+  - `usuario` (nombre y apellido concatenados)
   - `fecha`
-  - `id_usuario`
-  - `nombre_usuario` (o combinación de nombre/apellido)
   - `estado`
-  - `monto_total` (o total derivado)
+  - `forma_pago`
+  - `total`
 
 ## Criterio de Aceptación
-La consulta a la vista debe arrojar el mismo número de filas y registros exactos que la consulta manual directa uniendo las tablas `pedido` y `usuario`.
+La ejecución de `SELECT * FROM v_pedidos_resumen` debe retornar la misma cantidad de filas y los mismos valores que:
+```sql
+SELECT ped.id,
+       u.nombre || ' ' || u.apellido AS usuario,
+       ped.fecha, ped.estado, ped.forma_pago, ped.total
+FROM pedido ped
+JOIN usuario u ON u.id = ped.usuario_id
+WHERE ped.eliminado = FALSE;
+```
